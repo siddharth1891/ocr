@@ -27,11 +27,8 @@ def test_upload_invalid_type():
         "/api/v1/reports/upload",
         files={"file": ("a.txt", b"hello", "text/plain")},
     )
-    assert res.status_code == 200
-    job_id = res.json()["job_id"]
-
-    detail = client.get(f"/api/v1/reports/{job_id}")
-    assert detail.status_code == 500
+    assert res.status_code == 400
+    assert res.json()["detail"] == "Unsupported file type"
 
 
 def test_upload_image_no_tesseract_failure_path_is_handled():

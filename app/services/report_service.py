@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import asyncio
 import uuid
 from fastapi import UploadFile
 
+from app.config import settings
 from app.models import JobStatus, ReportDocument
 from app.services.file_processor import file_processor
 from app.services.ocr_service import ocr_service
@@ -13,14 +15,14 @@ from app.utils.logging import logger, mask_phi
 
 class ReportService:
     async def process_upload(self, file: UploadFile) -> str:
+        content = await file_processor.validate_and_read(file)
         job_id = str(uuid.uuid4())
         job_store.create(job_id)
-
         try:
-            content = await file_processor.validate_and_read(file)
-            images = file_processor.to_images(content, file.content_type or "")
-            lines = ocr_service.extract_lines(images)
-            metadata, pages, sections, unknown, raw_text = parser_service.parse(lines)
+            metadata, pages, sections, unknown, raw_text = await asyncio.wait_for(
+                asyncio.to_thread(self._extract_and_parse, content, file.content_type or ""),
+                timeout=settings.processing_timeout_seconds,
+            )
 
             result = ReportDocument(
                 document_id=job_id,
@@ -35,10 +37,17 @@ class ReportService:
             )
             logger.info("Processed report: %s", mask_phi(raw_text[:500]))
             job_store.complete(job_id, result)
+        except TimeoutError:
+            job_store.fail(job_id, "Processing timeout exceeded")
         except Exception as exc:  # noqa: BLE001
             job_store.fail(job_id, str(exc))
 
         return job_id
+
+    def _extract_and_parse(self, content: bytes, mime_type: str):
+        images = file_processor.to_images(content, mime_type)
+        lines = ocr_service.extract_lines(images)
+        return parser_service.parse(lines)
 
 
 report_service = ReportService()

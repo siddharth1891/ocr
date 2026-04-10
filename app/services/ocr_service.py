@@ -27,7 +27,8 @@ class OCRService:
             txt = (data["text"][i] or "").strip()
             if not txt:
                 continue
-            conf = float(data["conf"][i]) if str(data["conf"][i]).strip() not in {"", "-1"} else 0.0
+            raw_conf = data["conf"][i]
+            conf = 0.0 if raw_conf in {"", "-1", -1, None} else float(raw_conf)
             word = OCRWord(
                 text=txt,
                 confidence=max(conf, 0.0),

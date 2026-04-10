@@ -27,3 +27,4 @@ uvicorn app.main:app --reload
 ## Notes
 - OCR engine uses `pytesseract`; system Tesseract binary must be installed.
 - File validation includes MIME/type and max upload size (20MB).
+- Processing timeout is enforced (default 120s) for large or problematic reports.

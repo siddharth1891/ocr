@@ -51,6 +51,8 @@ class ParserService:
             txt = line.text.strip()
             if not txt:
                 continue
+            if self._is_metadata_line(txt):
+                continue
             if self._is_section_header(txt):
                 if current_section.rows:
                     sections.append(current_section)
@@ -86,6 +88,13 @@ class ParserService:
         lowered = text.lower()
         return any(token in lowered for token in ["test name", "result", "units", "reference", "end of report", "page"])
 
+    def _is_metadata_line(self, text: str) -> bool:
+        parts = re.split(r"\s*:\s*", text, maxsplit=1)
+        if len(parts) != 2:
+            return False
+        key = parts[0].strip().lower()
+        return any(alias in key for alias in self._meta_map)
+
     def _parse_row(self, text: str, line: OCRLine, row_idx: int) -> ParsedRow | None:
         # Expected shape: "Hemoglobin 17.0 g/dl 12-16"
         cleaned = re.sub(r"\s+", " ", text).strip()
@@ -104,7 +113,7 @@ class ParserService:
         unit_match = re.match(r"^([%a-zA-Z/\.]+)", rest)
         units = unit_match.group(1) if unit_match else None
         reference_range = None
-        range_match = re.search(r"(\d*\.?\d+)\s*[-–]\s*(\d*\.?\d+)", rest)
+        range_match = re.search(r"(\d*\.?\d+)\s*[-–—]\s*(\d*\.?\d+)", rest)
         if range_match:
             reference_range = f"{range_match.group(1)}-{range_match.group(2)}"
 
@@ -129,7 +138,10 @@ class ParserService:
 
     def _consistency_flags(self, result_value: str, units: str | None, reference_range: str | None) -> list[str]:
         flags: list[str] = []
-        value = float(result_value)
+        try:
+            value = float(result_value)
+        except ValueError:
+            return ["invalid_result_value"]
 
         if not units:
             flags.append("missing_unit")

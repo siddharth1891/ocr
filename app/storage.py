@@ -20,14 +20,18 @@ class JobStore:
 
     def complete(self, job_id: str, result) -> None:
         with self._lock:
-            rec = self._jobs[job_id]
+            rec = self._jobs.get(job_id)
+            if not rec:
+                return
             rec.status = JobStatus.completed
             rec.result = result
             self._jobs[job_id] = rec
 
     def fail(self, job_id: str, error: str) -> None:
         with self._lock:
-            rec = self._jobs[job_id]
+            rec = self._jobs.get(job_id)
+            if not rec:
+                return
             rec.status = JobStatus.failed
             rec.error = error
             self._jobs[job_id] = rec

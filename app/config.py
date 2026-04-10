@@ -4,6 +4,7 @@ from pydantic import BaseModel
 
 class Settings(BaseModel):
     max_upload_size_bytes: int = 20 * 1024 * 1024
+    processing_timeout_seconds: int = 120
     allowed_mime_types: set[str] = {
         "application/pdf",
         "image/jpeg",
